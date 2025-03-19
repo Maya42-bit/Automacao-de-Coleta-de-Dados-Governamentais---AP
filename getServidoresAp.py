@@ -1,9 +1,20 @@
 import requests
-from bs4 import BeautifulSoup, ResultSet, Tag
+from bs4 import BeautifulSoup
 import re
+import csv
 import pandas as pd
+import os
 
+# Diretórios
+base_dir = os.path.dirname(os.path.abspath(__file__))
+downloads_dir = os.path.join(base_dir, "Downloads")
+basepronta_dir = os.path.join(base_dir, "BasePronta")
 
+# Criar as pastas se não existirem
+os.makedirs(downloads_dir, exist_ok=True)
+os.makedirs(basepronta_dir, exist_ok=True)
+
+# Entrada do usuário
 while True:
     ano_consulta = input("Digite o ano da consulta (ex: 2024): ").strip()
     if ano_consulta.isdigit() and 2000 <= int(ano_consulta) <= 2100:
@@ -15,24 +26,49 @@ while True:
         mes_consulta = mes_consulta.zfill(2)
         break
 
-nome_arquivo_saida_api = f'servidores_api_AP_{mes_consulta}{ano_consulta}.csv'
+# Arquivos
+nome_arquivo_saida_api = os.path.join(downloads_dir, f'servidores_api_AP_{mes_consulta}{ano_consulta}.csv')
+nm_arq_final = os.path.join(basepronta_dir, f'AP_{mes_consulta}{ano_consulta}_limpo.csv')
 
-def limpar_linhas(arq_entrada, arq_saida):
-    with open(arq_entrada, 'r', encoding='utf-8') as f_in, open(arq_saida, 'w', encoding='utf-8') as f_out:
-        for linha in f_in:
-            linha_corrigida = re.sub(r'^[0-9;]+', '', linha).strip()
-            f_out.write(linha_corrigida +'\n')
+# Função para limpar as linhas do arquivo
+def limpar_linhas(arquivo_entrada, arquivo_saida):
+    with open(arquivo_entrada, "r", encoding="utf-8") as f_in, open(arquivo_saida, "w", encoding="utf-8", newline="") as f_out:
+        leitor = csv.reader(f_in)
+        escritor = csv.writer(f_out)
 
+        linha_anterior = None
 
+        for linha in leitor:
+            if not linha:
+                continue  # Ignora linhas vazias
+
+            # Se a linha começa com "/20", ela deve ser unida à anterior
+            if linha[0].startswith("/20") and linha_anterior:
+                while linha_anterior and linha_anterior[-1] == "":
+                    linha_anterior.pop()
+
+                linha_anterior[-1] += ", " + linha[0]
+                linha_anterior.extend(linha[1:])
+                continue
+
+            if linha_anterior:
+                linha_anterior = [re.sub(r'"', '', campo) for campo in linha_anterior]
+                escritor.writerow(linha_anterior)
+
+            linha_anterior = linha
+
+        if linha_anterior:
+            linha_anterior = [re.sub(r'"', '', campo) for campo in linha_anterior]
+            escritor.writerow(linha_anterior)
+
+# Função para extrair a tabela da resposta HTML
 def retornarTabela(html_string: str):
     soup = BeautifulSoup(html_string, 'html.parser')
-
-    # Tabela
     tabela = soup.select('.tab-content table tbody td')
     resultado = [x.text.strip() for x in tabela]
     return re.split(r';;\d+', ";".join(resultado))
 
-
+# Função para fazer a requisição e salvar os dados
 def fazerConsulta(pagina: str) -> None:
     cookies = {
         'MINIME_SESSAO': 'o6lk94ipoe47j8qkmk3ospus36',
@@ -71,7 +107,7 @@ def fazerConsulta(pagina: str) -> None:
         'filtro[LIQUIDO]': '',
     }
 
-    # Fazer requisicao
+    # Fazer requisição
     response = requests.post(
         f'http://www.transparencia.ap.gov.br/consulta/3/41/pessoal/folha-de-pagamento-por-servidor/detalhes/{pagina}',
         cookies=cookies,
@@ -80,29 +116,32 @@ def fazerConsulta(pagina: str) -> None:
         verify=False,
     )
 
-    # Pegar tabela
+    # Pegar tabela e salvar no arquivo de saída
     dados = retornarTabela(response.text)
     with open(f'{nome_arquivo_saida_api}', 'a', encoding='utf-8') as arquivo:
         for d in dados:
             arquivo.write(d[1:] + '\n')
 
-
-# Looping principal para pegar os dados
+# Loop para coletar os dados
 if __name__ == '__main__':
     for x in range(1, 1470):
         fazerConsulta(str(x))
-        print("Pagina concluída:"+str(x))
-        
+        print(f"Página {x} concluída!")
+
 # Limpeza das linhas do arquivo
-nm_arq_final = f'AP_{mes_consulta}{ano_consulta}_limpo.csv'
+limpar_linhas(nome_arquivo_saida_api, nm_arq_final)
 
-limpar_linhas(nome_arquivo_saida_api,nm_arq_final)
+# Padronizar as colunas do arquivo final
+colunas = ['NOME', 'ORGAO', 'CARGO', 'DATA_ADMISSAO', 'vazio', 'LOTACAO', 'CARGA_HORARIA', 'BRUTO', 'DESCONTOS', 'LIQUIDO']
+df = pd.read_csv(nm_arq_final, on_bad_lines='skip', encoding="utf-8", sep=';', names=colunas)
 
-#Padronizar as colunas do arquivo final
-colunas = ['NOME', 'ORGAO', 'CARGO', 'DATA_ADMISSAO','vazio','LOTACAO','CARGA_HORARIA', 'BRUTO', 'DECONTOS', 'LIQUIDO']
-df = pd.read_csv('AP_022024_limpo.csv', on_bad_lines='skip', encoding="utf-8", sep=';', names=colunas)
+# Remover coluna "vazio" que é um erro do CSV
 df = df.drop("vazio", axis=1)
-df.to_csv(f'AP_{mes_consulta}{ano_consulta}.csv', index=False, encoding='utf-8', sep=';') 
 
-    
-print("Cocnluido! Chefia!")
+# Nome final da base tratada
+arquivo_final = os.path.join(basepronta_dir, f'AP_{mes_consulta}{ano_consulta}.csv')
+
+# Salvar CSV final na pasta BasePronta
+df.to_csv(arquivo_final, index=False, encoding='utf-8', sep=';')
+
+print("✅ Processo finalizado! Os arquivos foram organizados nas pastas corretamente.")
