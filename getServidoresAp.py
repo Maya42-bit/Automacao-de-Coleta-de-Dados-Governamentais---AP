@@ -39,6 +39,7 @@ def limpar_linhas(arquivo_entrada, arquivo_saida):
         linha_anterior = None
 
         for linha in leitor:
+            
             if not linha:
                 continue  # Ignora linhas vazias
 
@@ -60,6 +61,25 @@ def limpar_linhas(arquivo_entrada, arquivo_saida):
         if linha_anterior:
             linha_anterior = [re.sub(r'"', '', campo) for campo in linha_anterior]
             escritor.writerow(linha_anterior)
+
+def pega_campo(texto, ncampo, padrao):
+    pedaco = 0  # Inicializa como inteiro
+    vcampo = ''
+    vposicao = 0  # Inicializa como inteiro
+
+    for i in range(len(texto)):
+        if texto[vposicao:vposicao+1] != padrao:  # Simula SUBSTR(texto, vposicao, 1)
+            vcampo += texto[vposicao:vposicao+1]
+        else:
+            pedaco += 1
+            if pedaco == ncampo:
+                return vcampo.strip()
+            vcampo = ''  # Reseta o campo para o próximo pedaço
+
+        vposicao += 1  # Incrementa a posição
+
+    return vcampo.strip()  # Retorna o último campo, caso necessário
+
 
 # Função para extrair a tabela da resposta HTML
 def retornarTabela(html_string: str):
