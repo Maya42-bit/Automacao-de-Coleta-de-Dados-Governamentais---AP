@@ -94,7 +94,6 @@ def pega_campo(texto, ncampo, padrao):
 
     return vcampo.strip()  # Retorna o último campo, caso necessário
 
-
 # Função para extrair a tabela da resposta HTML
 def retornarTabela(html_string: str):
     soup = BeautifulSoup(html_string, 'html.parser')
@@ -158,7 +157,7 @@ def fazerConsulta(pagina: str) -> None:
 
 # Loop para coletar os dados
 if __name__ == '__main__':
-    for x in range(1, 101):  #-> modificar para testes (original: 1470)
+    for x in range(1, 1470):  #-> modificar para testes (original: 1470)
         fazerConsulta(str(x))
         print(f"Página {x} concluída!")
 
