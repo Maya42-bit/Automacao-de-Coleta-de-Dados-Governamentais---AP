@@ -33,35 +33,49 @@ nm_arq_final = os.path.join(basepronta_dir, f'AP_{mes_consulta}{ano_consulta}_li
 # Função para limpar as linhas do arquivo
 def limpar_linhas(arquivo_entrada, arquivo_saida):
     with open(arquivo_entrada, "r", encoding="utf-8") as f_in, open(arquivo_saida, "w", encoding="utf-8", newline="") as f_out:
-        leitor = csv.reader(f_in)
-        escritor = csv.writer(f_out)
+        
+        #leitor = csv.reader(f_in, delimiter=';')
+        #escritor = csv.writer(f_out, delimiter=';')
+        
+        part_linha=0
+        linha_anterior = ['','']
+        campo_mod = ''
 
-        linha_anterior = None
-
-        for linha in leitor:
+        for linha in f_in:
             
+            # Ignora linhas vazias
             if not linha:
-                continue  # Ignora linhas vazias
+                exit  
+            
+            teste_count = linha.count(';')
+            
+            #Se a linha n tiver problema de quebra de texto
+            if teste_count >= 7:
+                #limpando linhas que possuem números no campo de nome
+                campo_mod = pega_campo(linha, 1, ';')  # Pega o campo 1 da linha 0
+                if campo_mod.isdigit() or campo_mod == '':
+                    linha = linha.replace(campo_mod+';', '')
+                             
+            else:
+                part_linha = part_linha + 1
+                if linha_anterior[0]:
 
-            # Se a linha começa com "/20", ela deve ser unida à anterior
-            if linha[0].startswith("/20") and linha_anterior:
-                while linha_anterior and linha_anterior[-1] == "":
-                    linha_anterior.pop()
+                    linha_anterior[1] = ";" + linha
+                    #linha_anterior.extend(linha[1:])
+                    linha_anterior[0] = linha_anterior[0].replace('\n', '')
+                    linha = " ".join(linha_anterior)
+                    f_out.write(linha)
+                   
+                    part_linha = 0
+                    linha_anterior = ['','']
+                    continue
 
-                linha_anterior[-1] += ", " + linha[0]
-                linha_anterior.extend(linha[1:])
+                linha_anterior[0] = linha
                 continue
-
-            if linha_anterior:
-                linha_anterior = [re.sub(r'"', '', campo) for campo in linha_anterior]
-                escritor.writerow(linha_anterior)
-
-            linha_anterior = linha
-
-        if linha_anterior:
-            linha_anterior = [re.sub(r'"', '', campo) for campo in linha_anterior]
-            escritor.writerow(linha_anterior)
-
+            
+            #escreve a linha no arquivo de saída
+            f_out.write(linha)
+            
 def pega_campo(texto, ncampo, padrao):
     pedaco = 0  # Inicializa como inteiro
     vcampo = ''
@@ -144,7 +158,7 @@ def fazerConsulta(pagina: str) -> None:
 
 # Loop para coletar os dados
 if __name__ == '__main__':
-    for x in range(1, 2):  #-> modificar para testes (original: 1470)
+    for x in range(1, 101):  #-> modificar para testes (original: 1470)
         fazerConsulta(str(x))
         print(f"Página {x} concluída!")
 
