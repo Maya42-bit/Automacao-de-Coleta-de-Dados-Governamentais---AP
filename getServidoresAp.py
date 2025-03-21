@@ -103,15 +103,14 @@ def retornarTabela(html_string: str):
 
 # Função para fazer a requisição e salvar os dados
 def fazerConsulta(pagina: str) -> None:
-    cookies = {
-        'MINIME_SESSAO': 'o6lk94ipoe47j8qkmk3ospus36',
-        '_gid': 'GA1.4.1909324950.1739906047',
-        '_ga_99NVV0VZ96': 'GS1.1.1739905900.1.1.1739906068.0.0.0',
-        '_ga': 'GA1.4.510970547.1739906047',
-        '_ga_HEPRG9MJ35': 'GS1.1.1739906047.1.1.1739906119.0.0.0',
-        '_ga_K4WQFLYGJ7': 'GS1.1.1739905900.1.1.1739906120.0.0.0',
-    }
-    headers = {
+    
+    url = f'http://www.transparencia.ap.gov.br/consulta/3/41/pessoal/folha-de-pagamento-por-servidor/detalhes/{pagina}'
+    
+    #Pega cookies
+    response = session.get(url, verify=False)
+    session.cookies.update(response.cookies)
+    
+    session.headers.update({
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
         'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
         'Cache-Control': 'max-age=0',
@@ -121,7 +120,8 @@ def fazerConsulta(pagina: str) -> None:
         'Referer': 'http://www.transparencia.ap.gov.br/consulta/3/41/pessoal/folha-de-pagamento-por-servidor/detalhes/2',
         'Upgrade-Insecure-Requests': '1',
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
-    }
+    })
+    
     data = {
         'parametros[pANO]': f'{ano_consulta}',
         'parametros[]': [
@@ -140,26 +140,28 @@ def fazerConsulta(pagina: str) -> None:
         'filtro[LIQUIDO]': '',
     }
 
-    # Fazer requisição
-    response = requests.post(
-        f'http://www.transparencia.ap.gov.br/consulta/3/41/pessoal/folha-de-pagamento-por-servidor/detalhes/{pagina}',
-        cookies=cookies,
-        headers=headers,
-        data=data,
-        verify=False,
-    )
-
-    # Pegar tabela e salvar no arquivo de saída
-    dados = retornarTabela(response.text)
-    with open(f'{nome_arquivo_saida_api}', 'a', encoding='utf-8') as arquivo:
+    try:
+        # Fazer requisição
+        response = session.post(url, data=data, verify=False)
+        response.raise_for_status()
+        
+        # Pegar tabela e salvar no arquivo de saída
+        dados = retornarTabela(response.text)
+    
         for d in dados:
             arquivo.write(d[1:] + '\n')
 
+    except requests.RequestException as e:
+        print(f"Erro na requisição: {e}")
+        exit()
+        
 # Loop para coletar os dados
 if __name__ == '__main__':
-    for x in range(1, 1470):  #-> modificar para testes (original: 1470)
-        fazerConsulta(str(x))
-        print(f"Página {x} concluída!")
+    session = requests.Session()
+    with open(f'{nome_arquivo_saida_api}', 'a', encoding='utf-8') as arquivo:
+        for x in range(1, 6):  #-> modificar para testes (original: 1470)
+            fazerConsulta(str(x))
+            print(f"Página {x} concluída!")
 
 # Limpeza das linhas do arquivo
 limpar_linhas(nome_arquivo_saida_api, nm_arq_final)
