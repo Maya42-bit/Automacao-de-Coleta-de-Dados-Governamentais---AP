@@ -4,7 +4,7 @@ import re
 import csv
 import pandas as pd
 import os
-
+# nova branch para testes
 # Diretórios
 base_dir = os.path.dirname(os.path.abspath(__file__))
 downloads_dir = os.path.join(base_dir, "Downloads")
